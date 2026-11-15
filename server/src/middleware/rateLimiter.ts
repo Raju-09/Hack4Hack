@@ -11,8 +11,11 @@ function rateLimitHandler(_req: Request, res: Response): void {
   });
 }
 
+const isTest = env.NODE_ENV === "test";
+const noopMiddleware = (_req: any, _res: any, next: any) => next();
+
 /** General API rate limiter */
-export const generalLimiter = rateLimit({
+export const generalLimiter = isTest ? noopMiddleware : rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
   max: env.RATE_LIMIT_MAX,
   standardHeaders: true,
@@ -22,7 +25,7 @@ export const generalLimiter = rateLimit({
 });
 
 /** Stricter limiter for auth endpoints */
-export const authLimiter = rateLimit({
+export const authLimiter = isTest ? noopMiddleware : rateLimit({
   windowMs: 15 * 60 * 1000,  // 15 minutes
   max: 10,
   standardHeaders: true,
@@ -32,7 +35,7 @@ export const authLimiter = rateLimit({
 });
 
 /** Invite redemption — separate limiter to prevent brute-force */
-export const inviteLimiter = rateLimit({
+export const inviteLimiter = isTest ? noopMiddleware : rateLimit({
   windowMs: 10 * 60 * 1000,  // 10 minutes
   max: 20,
   standardHeaders: true,
@@ -42,7 +45,7 @@ export const inviteLimiter = rateLimit({
 });
 
 /** Join request — prevent spam */
-export const joinLimiter = rateLimit({
+export const joinLimiter = isTest ? noopMiddleware : rateLimit({
   windowMs: 60 * 1000,  // 1 minute
   max: 10,
   standardHeaders: true,

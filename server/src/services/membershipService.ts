@@ -119,136 +119,136 @@ export async function acceptJoinRequest(input: {
   requestId: string;
   actorId: string;
 }): Promise<{ teamId: string; userId: string }> {
-  return withTransaction(async (session) => {
-    // Load request (must be pending)
-    const request = await JoinRequest.findById(input.requestId).session(session);
-    if (!request) throw new NotFoundError("Join request");
-    if (request.status !== "pending") throw new RequestNotPendingError();
+  try {
+    return await withTransaction(async (session) => {
+      // Load request (must be pending)
+      const request = await JoinRequest.findById(input.requestId).session(session);
+      if (!request) throw new NotFoundError("Join request");
+      if (request.status !== "pending") throw new RequestNotPendingError();
 
-    const teamId     = request.teamId;
-    const targetUser = request.userId;
+      const teamId     = request.teamId;
+      const targetUser = request.userId;
 
-    // ── Step 1: Verify actor is CURRENT leader (inside transaction) ─────────
-    const teamBeforeUpdate = await Team.findOne({
-      _id: teamId,
-      deletedAt: null,
-    }).session(session);
-    if (!teamBeforeUpdate) throw new NotFoundError("Team");
-    if (String(teamBeforeUpdate.leaderId) !== input.actorId) {
-      throw new ForbiddenError("Only the team leader can accept join requests");
-    }
+      // ── Step 1: Verify actor is CURRENT leader (inside transaction) ─────────
+      const teamBeforeUpdate = await Team.findOne({
+        _id: teamId,
+        deletedAt: null,
+      }).session(session);
+      if (!teamBeforeUpdate) throw new NotFoundError("Team");
+      if (String(teamBeforeUpdate.leaderId) !== input.actorId) {
+        throw new ForbiddenError("Only the team leader can accept join requests");
+      }
 
-    // ── Step 2: Hackathon still open ────────────────────────────────────────
-    const hackathon = await Hackathon.findById(teamBeforeUpdate.hackathonId).session(session).lean();
-    if (!hackathon || hackathon.status !== "open") throw new HackathonClosedError();
+      // ── Step 2: Hackathon still open ────────────────────────────────────────
+      const hackathon = await Hackathon.findById(teamBeforeUpdate.hackathonId).session(session).lean();
+      if (!hackathon || hackathon.status !== "open") throw new HackathonClosedError();
 
-    // ── Step 3: Atomic capacity reservation ─────────────────────────────────
-    // findOneAndUpdate only succeeds if memberCount < maxMembers.
-    // This is the single point where the "last seat" race is decided.
-    const updatedTeam = await Team.findOneAndUpdate(
-      {
-        _id:              teamId,
-        deletedAt:        null,
-        lookingForMembers: true,
-        $expr: { $lt: ["$memberCount", "$maxMembers"] },
-      },
-      { $inc: { memberCount: 1, version: 1 } },
-      { session, new: true }
-    );
+      // ── Step 3: Atomic capacity reservation ─────────────────────────────────
+      // findOneAndUpdate only succeeds if memberCount < maxMembers.
+      // This is the single point where the "last seat" race is decided.
+      const updatedTeam = await Team.findOneAndUpdate(
+        {
+          _id:              teamId,
+          deletedAt:        null,
+          lookingForMembers: true,
+          $expr: { $lt: ["$memberCount", "$maxMembers"] },
+        },
+        { $inc: { memberCount: 1, version: 1 } },
+        { session, new: true }
+      );
 
-    if (!updatedTeam) {
-      // Team is full — update request to "conflict" so user knows why
+      if (!updatedTeam) {
+        throw new TeamFullError();
+      }
+
+      // ── Step 4: Insert membership ────────────────────────────────────────────
+      // The unique index on (hackathonId, userId) fires here if the user
+      // has already joined another team, reverting the capacity increment.
+      try {
+        await Membership.create(
+          [
+            {
+              hackathonId: teamBeforeUpdate.hackathonId,
+              teamId,
+              userId:      targetUser,
+              role:        "member",
+              joinedAt:    new Date(),
+            },
+          ],
+          { session, ordered: true }
+        );
+      } catch (err: any) {
+        // User already in another team — throw to abort transaction
+        if (
+          err?.code === 11000 ||
+          (err instanceof mongoose.mongo.MongoServerError && err.code === 11000)
+        ) {
+          throw new AlreadyMemberError();
+        }
+        throw err;
+      }
+
+      // ── Step 5: Transition request to accepted ───────────────────────────────
       await JoinRequest.updateOne(
-        { _id: request._id },
-        { $set: { status: "conflict", updatedAt: new Date() } },
+        { _id: request._id, status: "pending" },  // extra guard
+        { $set: { status: "accepted", updatedAt: new Date() } },
         { session }
       );
-      throw new TeamFullError();
-    }
 
-    // ── Step 4: Insert membership ────────────────────────────────────────────
-    // The unique index on (hackathonId, userId) fires here if the user
-    // has already joined another team, reverting the capacity increment.
-    try {
-      await Membership.create(
+      const actorObjId = new mongoose.Types.ObjectId(input.actorId);
+
+      // ── Step 6: Audit ────────────────────────────────────────────────────────
+      await AuditLog.create(
         [
           {
             hackathonId: teamBeforeUpdate.hackathonId,
             teamId,
-            userId:      targetUser,
-            role:        "member",
-            joinedAt:    new Date(),
+            actorId:    actorObjId,
+            action:     "join_request.accepted",
+            targetId:   targetUser,
+            metadata:   { requestId: input.requestId, memberCount: updatedTeam.memberCount },
           },
         ],
         { session }
       );
-    } catch (err) {
-      // User already in another team — rollback capacity increment
-      if (
-        err instanceof mongoose.mongo.MongoServerError &&
-        err.code === 11000
-      ) {
-        await JoinRequest.updateOne(
-          { _id: request._id },
-          { $set: { status: "conflict" } },
-          { session }
-        );
-        throw new AlreadyMemberError();
-      }
-      throw err;
-    }
 
-    // ── Step 5: Transition request to accepted ───────────────────────────────
-    await JoinRequest.updateOne(
-      { _id: request._id, status: "pending" },  // extra guard
-      { $set: { status: "accepted", updatedAt: new Date() } },
-      { session }
-    );
-
-    const actorObjId = new mongoose.Types.ObjectId(input.actorId);
-
-    // ── Step 6: Audit ────────────────────────────────────────────────────────
-    await AuditLog.create(
-      [
-        {
-          hackathonId: teamBeforeUpdate.hackathonId,
-          teamId,
-          actorId:    actorObjId,
-          action:     "join_request.accepted",
-          targetId:   targetUser,
-          metadata:   { requestId: input.requestId, memberCount: updatedTeam.memberCount },
-        },
-      ],
-      { session }
-    );
-
-    // ── Step 7: Outbox ───────────────────────────────────────────────────────
-    await OutboxEvent.create(
-      [
-        {
-          eventType:   "join_request.accepted",
-          aggregateId: String(teamId),
-          hackathonId: teamBeforeUpdate.hackathonId,
-          payload: {
-            teamId:    String(teamId),
-            userId:    String(targetUser),
-            requestId: input.requestId,
+      // ── Step 7: Outbox ───────────────────────────────────────────────────────
+      await OutboxEvent.create(
+        [
+          {
+            eventType:   "join_request.accepted",
+            aggregateId: String(teamId),
+            hackathonId: teamBeforeUpdate.hackathonId,
+            payload: {
+              teamId:    String(teamId),
+              userId:    String(targetUser),
+              requestId: input.requestId,
+            },
+            publishedAt: null,
           },
-          publishedAt: null,
-        },
-      ],
-      { session }
-    );
+        ],
+        { session }
+      );
 
-    logger.info("Join request accepted", {
-      requestId: input.requestId,
-      teamId: String(teamId),
-      userId: String(targetUser),
-      newMemberCount: updatedTeam.memberCount,
+      logger.info("Join request accepted", {
+        requestId: input.requestId,
+        teamId: String(teamId),
+        userId: String(targetUser),
+        newMemberCount: updatedTeam.memberCount,
+      });
+
+      return { teamId: String(teamId), userId: String(targetUser) };
     });
-
-    return { teamId: String(teamId), userId: String(targetUser) };
-  });
+  } catch (err) {
+    if (err instanceof TeamFullError || err instanceof AlreadyMemberError) {
+      // Mark request as conflict outside the aborted transaction so user knows why
+      await JoinRequest.updateOne(
+        { _id: input.requestId },
+        { $set: { status: "conflict", updatedAt: new Date() } }
+      ).catch(() => {});
+    }
+    throw err;
+  }
 }
 
 // ─── Decline Join Request ─────────────────────────────────────────────────────
@@ -355,7 +355,7 @@ export async function leaveTeam(input: {
             metadata:    { reason: "last_member_left" },
           },
         ],
-        { session }
+        { session, ordered: true }
       );
 
       await OutboxEvent.create(
@@ -368,7 +368,7 @@ export async function leaveTeam(input: {
             publishedAt: null,
           },
         ],
-        { session }
+        { session, ordered: true }
       );
 
       return { teamDeleted: true };
@@ -437,7 +437,7 @@ export async function leaveTeam(input: {
             metadata:    {},
           },
         ],
-        { session }
+        { session, ordered: true }
       );
 
       await OutboxEvent.create(
@@ -454,7 +454,7 @@ export async function leaveTeam(input: {
             publishedAt: null,
           },
         ],
-        { session }
+        { session, ordered: true }
       );
 
       return { teamDeleted: false, newLeaderId: String(newLeaderId) };

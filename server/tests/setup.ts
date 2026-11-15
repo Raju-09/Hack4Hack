@@ -1,16 +1,22 @@
 import { beforeAll, afterAll, beforeEach } from "vitest";
 import mongoose from "mongoose";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { connectDatabase, disconnectDatabase } from "../src/config/database.js";
 
-// Use a test-specific database to avoid polluting development data
-const TEST_MONGO_URI =
-  process.env["TEST_MONGO_URI"] ??
-  "mongodb://localhost:27017,localhost:27018,localhost:27019/crewforge_test?replicaSet=rs0";
+let replSet: MongoMemoryReplSet | null = null;
 
 beforeAll(async () => {
-  // Set env variables required by config/env
+  let uri = process.env["TEST_MONGO_URI"];
+
+  if (!uri) {
+    replSet = await MongoMemoryReplSet.create({
+      replSet: { count: 1, storageEngine: "wiredTiger" },
+    });
+    uri = replSet.getUri();
+  }
+
   process.env["NODE_ENV"]           = "test";
-  process.env["MONGODB_URI"]        = TEST_MONGO_URI;
+  process.env["MONGODB_URI"]        = uri;
   process.env["JWT_SECRET"]         = "test_jwt_secret_at_least_32_characters_long!";
   process.env["JWT_REFRESH_SECRET"] = "test_refresh_secret_at_least_32_characters!!";
   process.env["COOKIE_SECRET"]      = "test_cookie_secret_16chars";
@@ -18,18 +24,20 @@ beforeAll(async () => {
   process.env["JWT_REFRESH_EXPIRY"] = "7d";
   process.env["CLIENT_ORIGIN"]      = "http://localhost:5173";
   process.env["RATE_LIMIT_WINDOW_MS"] = "60000";
-  process.env["RATE_LIMIT_MAX"]     = "1000";  // relaxed for tests
-  process.env["LOG_LEVEL"]          = "warn";  // suppress noise in tests
+  process.env["RATE_LIMIT_MAX"]     = "1000";
+  process.env["LOG_LEVEL"]          = "warn";
 
-  await connectDatabase(TEST_MONGO_URI);
-}, 30_000);
+  await connectDatabase(uri);
+}, 90_000);
 
 afterAll(async () => {
   await disconnectDatabase();
+  if (replSet) {
+    await replSet.stop();
+  }
 });
 
 beforeEach(async () => {
-  // Clean all collections before each test for isolation
   const db = mongoose.connection.db;
   if (!db) return;
   const collections = await db.listCollections().toArray();

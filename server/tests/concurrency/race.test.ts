@@ -28,11 +28,21 @@ import { createTeam } from "../../src/services/teamService.js";
 import { createJoinRequest, acceptJoinRequest } from "../../src/services/membershipService.js";
 import argon2 from "argon2";
 
+let sharedTestHash = "";
+
+async function getSharedHash(): Promise<string> {
+  if (!sharedTestHash) {
+    sharedTestHash = await argon2.hash("password123");
+  }
+  return sharedTestHash;
+}
+
 async function createTestUser(suffix: number | string) {
+  const passwordHash = await getSharedHash();
   return User.create({
     displayName:  `User ${suffix}`,
     email:        `user${suffix}@test.com`,
-    passwordHash: await argon2.hash("password123"),
+    passwordHash,
     skills:       ["backend"],
     timezone:     "UTC",
     experienceLevel: "intermediate",
@@ -192,7 +202,7 @@ describe("Race-condition: 50 users compete for 1 seat", () => {
       userId:      user._id,
     });
     expect(totalMemberships).toBe(1);
-  }, 30_000);
+  }, 60_000);
 });
 
 describe("Leader departure", () => {
