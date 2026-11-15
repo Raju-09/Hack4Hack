@@ -52,25 +52,44 @@ export async function createJoinRequest(input: {
   if (membership) throw new AlreadyMemberError();
 
   const userObjId = new mongoose.Types.ObjectId(input.userId);
+  const teamObjId = new mongoose.Types.ObjectId(input.teamId);
 
-  // Insert request — unique index on (teamId, userId) prevents duplicates
-  let request;
-  try {
-    request = await JoinRequest.create({
-      hackathonId: team.hackathonId,
-      teamId:      new mongoose.Types.ObjectId(input.teamId),
-      userId:      userObjId,
-      message:     input.message,
-      status:      "pending",
-    });
-  } catch (err) {
-    if (
-      err instanceof mongoose.mongo.MongoServerError &&
-      err.code === 11000
-    ) {
+  // Check if a request already exists for this (teamId, userId)
+  const existingRequest = await JoinRequest.findOne({ teamId: teamObjId, userId: userObjId });
+  let requestId: string;
+
+  if (existingRequest) {
+    if (existingRequest.status === "pending") {
       throw new RequestExistsError();
     }
-    throw err;
+    if (existingRequest.status === "accepted") {
+      throw new AlreadyMemberError();
+    }
+    // Reapplication after "declined", "conflict", or "cancelled"
+    existingRequest.status = "pending";
+    existingRequest.message = input.message;
+    existingRequest.updatedAt = new Date();
+    await existingRequest.save();
+    requestId = String(existingRequest._id);
+  } else {
+    try {
+      const created = await JoinRequest.create({
+        hackathonId: team.hackathonId,
+        teamId:      teamObjId,
+        userId:      userObjId,
+        message:     input.message,
+        status:      "pending",
+      });
+      requestId = String(created._id);
+    } catch (err) {
+      if (
+        err instanceof mongoose.mongo.MongoServerError &&
+        err.code === 11000
+      ) {
+        throw new RequestExistsError();
+      }
+      throw err;
+    }
   }
 
   // Outbox: notify team leader
@@ -79,15 +98,15 @@ export async function createJoinRequest(input: {
     aggregateId: String(team._id),
     hackathonId: team.hackathonId,
     payload: {
-      requestId: String(request._id),
+      requestId,
       teamId:    input.teamId,
       userId:    input.userId,
     },
     publishedAt: null,
   });
 
-  logger.info("Join request created", { requestId: request._id, teamId: input.teamId, userId: input.userId });
-  return { requestId: String(request._id) };
+  logger.info("Join request created", { requestId, teamId: input.teamId, userId: input.userId });
+  return { requestId };
 }
 
 // ─── Accept Join Request ──────────────────────────────────────────────────────
@@ -242,10 +261,40 @@ export async function acceptJoinRequest(input: {
   } catch (err) {
     if (err instanceof TeamFullError || err instanceof AlreadyMemberError) {
       // Mark request as conflict outside the aborted transaction so user knows why
-      await JoinRequest.updateOne(
-        { _id: input.requestId },
-        { $set: { status: "conflict", updatedAt: new Date() } }
-      ).catch(() => {});
+      try {
+        const conflictDoc = await JoinRequest.findOneAndUpdate(
+          { _id: input.requestId, status: "pending" },
+          { $set: { status: "conflict", updatedAt: new Date() } },
+          { new: true }
+        ).lean();
+
+        if (conflictDoc) {
+          const reason = err instanceof TeamFullError ? "team_full" : "already_member";
+          await AuditLog.create({
+            hackathonId: conflictDoc.hackathonId,
+            teamId:      conflictDoc.teamId,
+            actorId:     new mongoose.Types.ObjectId(input.actorId),
+            action:      "join_request.conflict",
+            targetId:    conflictDoc.userId,
+            metadata:    { requestId: input.requestId, reason },
+          }).catch(() => {});
+
+          await OutboxEvent.create({
+            eventType:   "join_request.conflict",
+            aggregateId: String(conflictDoc.teamId),
+            hackathonId: conflictDoc.hackathonId,
+            payload: {
+              teamId:    String(conflictDoc.teamId),
+              userId:    String(conflictDoc.userId),
+              requestId: input.requestId,
+              reason,
+            },
+            publishedAt: null,
+          }).catch(() => {});
+        }
+      } catch {
+        // Best effort conflict recording outside aborted transaction
+      }
     }
     throw err;
   }

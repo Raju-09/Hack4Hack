@@ -6,7 +6,6 @@ import { env } from "../config/env.js";
 import {
   UnauthorizedError,
   ConflictError,
-  NotFoundError,
 } from "../utils/errors.js";
 import { logger } from "../utils/logger.js";
 

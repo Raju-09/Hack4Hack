@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { OutboxEvent, IOutboxEvent } from "../models/index.js";
+import { OutboxEvent } from "../models/index.js";
 import { logger } from "../utils/logger.js";
 
 // ─── SSE Client Registry ──────────────────────────────────────────────────────

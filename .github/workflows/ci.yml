@@ -54,7 +54,7 @@ jobs:
 
       - name: Lint
         working-directory: server
-        run: npm run lint || echo "::warning::Lint issues found"
+        run: npm run lint
 
       - name: TypeScript check
         working-directory: server

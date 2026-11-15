@@ -6,7 +6,6 @@ import { UpdateProfileSchema } from "../schemas/validation.js";
 import { User, Membership, JoinRequest } from "../models/index.js";
 import { toPublicUser } from "../services/authService.js";
 import { withTransaction } from "../config/database.js";
-import mongoose from "mongoose";
 
 const router = Router();
 

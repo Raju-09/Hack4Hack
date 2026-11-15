@@ -32,8 +32,11 @@ All state changes preserve the four core invariants:
 4. **Deterministic Leadership Transfer:** If a team leader leaves, the system atomically transfers leadership to the member with earliest `joinedAt` (or designated successor). If the sole member departs, the team is soft-deleted and pending requests are cancelled.
 
 ## 5. Concurrency Evidence
-- **50-VU Concurrent Race Test (`tests/concurrency/race.test.ts`):** 50 distinct applicants competing simultaneously for a team's single remaining seat.
-- **Observed Result:** Exactly 1 applicant accepted; 49 requests safely rejected with `409 TEAM_FULL`. Final `memberCount = 2`, exact `memberships count = 2`, zero duplicate documents.
+- **End-to-End HTTP Concurrency Race Test (`tests/concurrency/httpRace.test.ts`):** 50 distinct applicants submit HTTP join requests, and the leader fires 50 simultaneous HTTP acceptance calls through the full Express middleware stack, route handlers, idempotency layer, and database transactions.
+  - **Observed Result:** Exactly 1 HTTP 200 OK; 49 HTTP 409 Conflicts. Database assertions verify `memberCount = 2`, actual memberships count = 2, exactly 1 accepted request, and 49 conflict requests.
+- **Service-Level Concurrency Test (`tests/concurrency/race.test.ts`):** 50 concurrent `acceptJoinRequest` transactions competing for the single remaining seat.
+  - **Observed Result:** Exactly 1 applicant accepted; 49 requests safely rejected with `TeamFullError`. Final `memberCount = 2`, exact `memberships count = 2`, zero duplicate documents.
+- **Cross-Team Concurrency Test:** Simultaneous accepts for 1 applicant into 2 different teams results in exactly 1 membership; the competing transaction automatically aborts, rolls back capacity, and records conflict audit/outbox entries.
 
 ## 6. Security & Privacy
 - **Object-Level Authorization:** Verified inside database sessions, preventing IDOR.
@@ -49,9 +52,10 @@ All state changes preserve the four core invariants:
 - **k6 Load Test (`load-tests/board.js`):** 100 sustained concurrent VUs browsing the discovery board.
 - **Observed Results:** p95 latency = **98.4 ms** (target < 200 ms), 0.00% error rate across 5,372 requests.
 
-## 9. Limitations
-- Outbox event publisher uses high-frequency polling (500 ms) instead of MongoDB Change Streams.
-- Local replica set requires Docker or multi-process setup for offline unit testing without cloud Atlas.
+## 9. Limitations & Testing Boundary
+- **In-Memory Replica Set in Tests:** Automated test suites run against an in-process MongoDB WiredTiger replica set (`MongoMemoryReplSet`) supporting multi-document ACID transactions. While transaction serialization and unique index constraints behave identically, distributed 3-node network partition failover, replication lag, and primary elections require separate multi-host staging tests.
+- **Development vs. Production Compose:** The bundled `docker-compose.yml` is configured for reproducible local development (`NODE_ENV: development`). Production deployment requires separate optimized multi-stage images, hardened secrets, and TLS termination.
+- **Outbox Polling:** Outbox event publisher uses high-frequency polling (500 ms) instead of MongoDB Change Streams.
 
 ## 10. Next Steps / Production Roadmap
 - Upgrade outbox to native MongoDB Change Streams with Redis Streams fan-out for multi-region clustering.

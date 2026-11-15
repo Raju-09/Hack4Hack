@@ -1,5 +1,4 @@
 import { User, Membership, Team } from "../models/index.js";
-import { NotFoundError } from "../utils/errors.js";
 
 /**
  * US-09: Explainable teammate matching.

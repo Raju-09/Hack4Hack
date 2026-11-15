@@ -6,10 +6,10 @@
  * replica set. No mocking of database operations.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import supertest from "supertest";
 import { createApp } from "../../src/app.js";
-import { Hackathon, Team, Membership, JoinRequest } from "../../src/models/index.js";
+import { Hackathon, Membership, JoinRequest } from "../../src/models/index.js";
 
 const app = createApp();
 const request = supertest(app);
@@ -236,8 +236,8 @@ describe("Join Requests", () => {
   });
 
   it("T-12: non-leader cannot accept a join request (403)", async () => {
-    const { cookies: leaderCookies, userId: leaderId } = await registerAndLogin("auth_leader");
-    const { cookies: userCookies,   userId: userId }   = await registerAndLogin("auth_user");
+    const { cookies: leaderCookies }                   = await registerAndLogin("auth_leader");
+    const { cookies: userCookies }                     = await registerAndLogin("auth_user");
     const { cookies: attackerCookies }                 = await registerAndLogin("auth_attacker");
     const hackathon = await createHackathon();
 
@@ -378,7 +378,7 @@ describe("Invites", () => {
 
 describe("Leave and Remove", () => {
   it("T-17: member can leave team", async () => {
-    const { cookies: leaderCookies, userId: leaderId } = await registerAndLogin("leave_leader2");
+    const { cookies: leaderCookies }                   = await registerAndLogin("leave_leader2");
     const { cookies: memberCookies, userId: memberId }  = await registerAndLogin("leave_member2");
     const hackathon = await createHackathon();
 

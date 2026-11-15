@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { User, IUser } from "../models/index.js";
-import { UnauthorizedError, ForbiddenError } from "../utils/errors.js";
+import { UnauthorizedError } from "../utils/errors.js";
 
 // Extend Express Request with authenticated user
 declare global {
@@ -43,7 +43,7 @@ export async function authenticate(
         issuer: "crewforge",
         audience: "crewforge-client",
       }) as JwtPayload;
-    } catch (err) {
+    } catch {
       throw new UnauthorizedError("Invalid or expired token");
     }
 

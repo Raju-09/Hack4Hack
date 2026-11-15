@@ -1,10 +1,9 @@
-# CrewForge 🚀
-### Race-Proof Hackathon Team Formation at Scale
+# CrewForge — Race-Proof Hackathon Team Formation at Scale
 **Hack4Hack Crew Hiring Challenge 2026 — Problem Statement 1 (PS1)**
 
 ---
 
-## 🌟 Overview
+## Overview
 
 CrewForge is a production-minded hackathon team formation platform built for **10,000+ participants**. It solves the critical flaw found in most hackathon applications: **concurrency race conditions, overfilled teams, duplicate memberships, and insecure invite codes.**
 
@@ -12,7 +11,23 @@ Instead of superficial CRUD, CrewForge enforces formal business invariants at bo
 
 ---
 
-## 🎯 Key Differentiators Built-In
+### Evidence & Verification Matrix
+
+| Area | Verification Scope | Status | Evidence Artifact |
+|---|---|---|---|
+| **End-to-End HTTP Concurrency** | 50 simultaneous authenticated HTTP accept calls through Express middleware & transactions | **VERIFIED PASS** (1 OK / 49 Conflict) | [`server/tests/concurrency/httpRace.test.ts`](server/tests/concurrency/httpRace.test.ts) |
+| **Service-Level Concurrency** | 50 concurrent transactions deciding final open seat | **VERIFIED PASS** (0 overfill, INV-1..4 held) | [`server/tests/concurrency/race.test.ts`](server/tests/concurrency/race.test.ts) |
+| **API Integration & Security** | 23 integration tests: Auth, RBAC, IDOR, pagination, double-tap idempotency | **VERIFIED PASS** (23/23 passing) | [`server/tests/api/api.test.ts`](server/tests/api/api.test.ts) |
+| **Static Code Quality** | TypeScript `strict: true` and ESLint 9 | **VERIFIED PASS** (0 errors, 0 warnings) | `npm run lint` & `npm run typecheck` |
+| **CI Quality Gate** | Automated lint, build, API tests, and replica set race tests | **VERIFIED IN CI** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| **Local Test Environment** | In-process WiredTiger Replica Set with multi-document ACID transactions | **VERIFIED IN CODE** | [`server/tests/setup.ts`](server/tests/setup.ts) |
+| **Multi-Host Failover** | Network partitions, election failovers, multi-region replication lag | *Staging/Cluster Target* | Requires multi-host cloud deployment |
+
+> **Testing Environment Distinction:** All automated test suites execute against an in-process MongoDB WiredTiger replica set (`MongoMemoryReplSet`). This accurately tests multi-document ACID transactions, lock serialization, rollback on conflict, and unique index constraint enforcement without requiring external system dependencies. Distributed multi-node primary elections, replication lag, and network partitions are separate cluster-level infrastructure tests.
+
+---
+
+## Key Differentiators Built-In
 
 1. **Race-Proof Membership Engine:** Conditional atomic capacity reservations prevent TOCTOU race conditions. 50 concurrent requests competing for the last seat result in **exactly 1 acceptance** and **49 clean conflict rejections**.
 2. **Explainable Teammate Matching:** Deterministic matching score formula ($Score = 0.50S + 0.30T + 0.20A$) with transparent breakdowns (Skill Synergy, Timezone Alignment, Availability Overlap) and human-readable reasons.
@@ -23,7 +38,7 @@ Instead of superficial CRUD, CrewForge enforces formal business invariants at bo
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```text
 React 18 + TS (Vite)
@@ -47,14 +62,14 @@ MongoDB 7.0 Replica Set (rs0)
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### Prerequisites
 - Node.js >= 20.0.0
 - MongoDB 7.0+ configured as a Replica Set (or Docker)
 
-### Option A: Running via Docker Compose (Recommended)
-This boots up a 3-node MongoDB replica set (`mongo1`, `mongo2`, `mongo3`), initializes `rs0`, and starts both the Express API and React frontend:
+### Option A: Running via Docker Compose (Local Development)
+This boots up a 3-node MongoDB replica set (`mongo1`, `mongo2`, `mongo3`), initializes `rs0`, and starts both the Express API and React frontend in development mode:
 
 ```bash
 docker compose up --build
@@ -63,7 +78,9 @@ docker compose up --build
 - Backend API: `http://localhost:4000`
 - Health check: `http://localhost:4000/health`
 
-### Option B: Local Development
+*(Note: `docker-compose.yml` is configured for reproducible local development with live reload. For production environments, configure hardened non-root container images, external secret managers, and TLS reverse proxies).*
+
+### Option B: Local Execution
 
 1. **Install Server Dependencies & Build:**
    ```bash
@@ -72,22 +89,28 @@ docker compose up --build
    npm run build
    ```
 
-2. **Sync Database Indexes:**
+2. **Run Linter & Typecheck:**
+   ```bash
+   npm run lint
+   npm run typecheck
+   ```
+
+3. **Sync Database Indexes:**
    ```bash
    npm run db:indexes
    ```
 
-3. **Seed Database (10,000 Users, 2,000 Teams):**
+4. **Seed Database (10,000 Users, 2,000 Teams):**
    ```bash
    npm run seed
    ```
 
-4. **Start Backend API:**
+5. **Start Backend API:**
    ```bash
    npm run dev
    ```
 
-5. **Start Frontend Client:**
+6. **Start Frontend Client:**
    ```bash
    cd ../client
    npm install
@@ -96,55 +119,60 @@ docker compose up --build
 
 ---
 
-## 🧪 Automated Testing & Verification
+## Automated Testing & Concurrency Proof
 
-CrewForge comes with a comprehensive test suite that verifies correctness under simultaneous requests:
+CrewForge comes with 31 automated tests verifying end-to-end HTTP concurrency, database invariants, and API security:
 
 ```bash
 cd server
 
-# Run all 20+ API integration & security tests
-npm run test
+# Run all 31 tests (API + Service Concurrency + End-to-End HTTP Concurrency)
+npm test
 
-# Run the 50-user concurrent race condition test
-npm run test:race
+# Run only the End-to-End HTTP 50-VU Concurrency Race Test
+npm run test:race:http
+
+# Run only the Service-Level Concurrency Test
+npm run test:race:service
 ```
 
-### 🏎️ Concurrency Test Results (`tests/concurrency/race.test.ts`)
+### 1. End-to-End HTTP Concurrency Test (`tests/concurrency/httpRace.test.ts`)
+Exercises the full Express HTTP pipeline under concurrent load:
 ```text
-✓ allows exactly 1 user to join when 50 attempt simultaneously (50 concurrent accepts)
+✓ 50 simultaneous HTTP join-request accepts result in exactly 1 HTTP 200 and 49 HTTP 409s
+✓ prevents one user from being accepted into two teams simultaneously over HTTP
+✓ handles the reapplication lifecycle: submit -> decline -> reapply -> accept over HTTP
+✓ prevents over-redemption when multiple users redeem the final invite use simultaneously
+
+E2E HTTP CONCURRENCY RESULT:
+- HTTP 200 OK: 1
+- HTTP 409 Conflict: 49 (TEAM_FULL)
+- Final Team State: memberCount = 2, actual memberships = 2
+- Invariants Verified: INV-1 ✓ INV-2 ✓ INV-3 ✓ INV-4 ✓
+```
+
+### 2. Service-Level Concurrency Test (`tests/concurrency/race.test.ts`)
+```text
+✓ allows exactly 1 user to join when 50 attempt simultaneously (50 concurrent transactions)
 ✓ prevents duplicate membership even with two different idempotency keys
 ✓ promotes earliest member when leader leaves with others
 ✓ deletes team when sole member leaves
--------------------------------------------------------------------------------
-CONCURRENCY VERIFICATION LOG:
-- 50 candidates competing simultaneously for 1 open seat:
-  * Accepted: 1 (status: 200 OK)
-  * Conflicts: 49 (status: 409 TEAM_FULL / ALREADY_MEMBER)
-- Final Team State: memberCount = 2, actual memberships = 2
-- Invariants Verified: INV-1 ✓ INV-2 ✓ INV-3 ✓ INV-4 ✓ INV-5 ✓
--------------------------------------------------------------------------------
 ```
 
-### 📊 Load Test Results (`load-tests/board.js`)
-Tested with `k6` over a 10,000-user and 2,000-team dataset:
-- **Concurrent Users:** 100 VUs
-- **Observed p95 Board Latency:** **98.4 ms** (Target: < 200 ms)
-- **Observed Error Rate:** **0.00%** across 5,372 requests
+### 3. API Integration & Security Tests (`tests/api/api.test.ts`)
+23 tests covering authentication, RBAC, IDOR defenses, double-tap idempotency, and bounded cursor pagination.
 
 ---
 
-## 🎓 45-Minute Interview Defense Guide
-
-Judges will test whether you truly understand the engineering trade-offs. Here is the architectural defense:
+## 45-Minute Interview Defense Guide
 
 ### Q1: Why did you choose MongoDB over PostgreSQL?
 **Answer:**
-> "The Hack4Hack challenge organizers explicitly stated MongoDB is their preferred evaluation stack. Rather than using naive MongoDB CRUD, I designed it with distributed systems rigor: using a 3-node MongoDB Replica Set to unlock multi-document ACID transactions with `w: majority`. Invariants that relational databases solve with foreign keys are enforced using compound unique indexes (`{ hackathonId: 1, userId: 1 }`) and atomic conditional updates (`$expr: { $lt: ['$memberCount', '$maxMembers'] }`)."
+> "The Hack4Hack challenge organizers explicitly stated MongoDB is their preferred evaluation stack. Rather than using naive MongoDB CRUD, I designed it with distributed systems rigor: using a MongoDB Replica Set to unlock multi-document ACID transactions with `w: majority`. Invariants that relational databases solve with foreign keys are enforced using compound unique indexes (`{ hackathonId: 1, userId: 1 }`) and atomic conditional updates (`$expr: { $lt: ['$memberCount', '$maxMembers'] }`)."
 
 ### Q2: Why is a simple count check unsafe under concurrency?
 **Answer:**
-> "A count check followed by an insertion is a classic Time-of-Check to Time-of-Use (TOCTOU) bug. If 50 requests arrive concurrently when a team has 1 seat remaining, all 50 threads read `count = 3 < 4`, all 50 pass the check, and all 50 insert. The team ends up with 53 members. CrewForge avoids this by executing an atomic reservation directly on the team document inside a transaction: `Team.findOneAndUpdate({ _id, lookingForMembers: true, $expr: { $lt: ['$memberCount', '$maxMembers'] } }, { $inc: { memberCount: 1 } }, { session })`. MongoDB serializes conflicting updates on that document, so exactly one succeeds and the other 49 fail."
+> "A count check followed by an insertion is a classic Time-of-Check to Time-of-Use (TOCTOU) bug. If 50 requests arrive concurrently when a team has 1 seat remaining, all 50 threads read `count = 1 < 2`, all 50 pass the check, and all 50 insert. The team ends up with 51 members. CrewForge avoids this by executing an atomic reservation directly on the team document inside a transaction: `Team.findOneAndUpdate({ _id, lookingForMembers: true, $expr: { $lt: ['$memberCount', '$maxMembers'] } }, { $inc: { memberCount: 1 } }, { session })`. MongoDB serializes conflicting updates on that document, so exactly one succeeds and the other 49 fail."
 
 ### Q3: What happens if membership insertion fails after capacity is incremented?
 **Answer:**
@@ -157,34 +185,3 @@ Judges will test whether you truly understand the engineering trade-offs. Here i
 ### Q5: How do you protect invite codes from abuse?
 **Answer:**
 > "Invite tokens are generated with 256 bits of cryptographic entropy (`crypto.randomBytes(32)`). The raw token is returned to the leader once and never stored in the database or server logs. The database stores only `SHA-256(token)`. When redeemed, expiration and revocation are verified synchronously against server time in the transaction, backed by a dedicated IP/user rate limiter."
-
----
-
-## 📁 Repository Structure
-
-```text
-├── .github/workflows/ci.yml       # GitHub Actions: Lint, Typecheck, Mongo RS, Tests, Race
-├── client/                        # React 18 + TypeScript + Vite frontend
-│   ├── src/components/            # DiscoveryBoard, TeamDashboard, TeammateMatching, ConcurrencySimulator
-│   ├── src/api/client.ts          # API client with automatic Idempotency-Key generation
-│   └── src/hooks/useSSE.ts        # Real-time Server-Sent Events integration
-├── server/                        # Express + TypeScript backend
-│   ├── src/config/                # Replica set database connection & Zod environment
-│   ├── src/models/                # Mongo schemas & unique indexes
-│   ├── src/services/              # Transactional business logic (Teams, Memberships, Invites)
-│   ├── src/middleware/            # Auth, Zod Validation, RateLimiter, Idempotency
-│   ├── scripts/seed.ts            # 10,000-user, 2,000-team seed script
-│   └── tests/                     # 20+ API tests and 50-user concurrency race test
-├── evidence/                      # Captured audit evidence
-│   ├── concurrency/               # Race test output and invariant JSON
-│   ├── load-test/                 # k6 load report, summary JSON, and machine specs
-│   └── security/                  # OWASP threat model verification
-├── load-tests/board.js            # k6 benchmark script (100 VUs, p95 < 200ms)
-├── CrewForge-PRD.md               # Product Requirements Document
-├── CrewForge-Design-Document.md   # Official One-Page Architecture Document
-└── docker-compose.yml             # 3-Node Mongo Replica Set + API + Client
-```
-
----
-
-*CrewForge was engineered for the Hack4Hack Crew Hiring Challenge 2026.*

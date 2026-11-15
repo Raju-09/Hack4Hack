@@ -21,7 +21,7 @@ const router = Router();
 router.get(
   "/",
   optionalAuthenticate,
-  (req: Request, res: Response, next: NextFunction) => {
+  (req: Request, res: Response, _next: NextFunction) => {
     const hackathonId = req.query["hackathonId"] as string | undefined;
     if (!hackathonId) {
       res.status(400).json({ error: { code: "MISSING_HACKATHON_ID", message: "hackathonId query parameter is required" } });

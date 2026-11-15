@@ -5,7 +5,7 @@ import { generalLimiter } from "../middleware/rateLimiter.js";
 import { CreateTeamSchema, UpdateTeamSchema, TeamQuerySchema } from "../schemas/validation.js";
 import * as teamService from "../services/teamService.js";
 import { AuditLog } from "../models/index.js";
-import { NotFoundError, ForbiddenError } from "../utils/errors.js";
+import { ForbiddenError } from "../utils/errors.js";
 
 const router = Router();
 

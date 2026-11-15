@@ -20,7 +20,6 @@
  */
 
 import { describe, it, expect } from "vitest";
-import mongoose from "mongoose";
 import {
   User, Hackathon, Team, Membership, JoinRequest,
 } from "../../src/models/index.js";

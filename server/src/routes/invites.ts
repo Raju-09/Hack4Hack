@@ -5,15 +5,8 @@ import { idempotency } from "../middleware/idempotency.js";
 import { inviteLimiter, generalLimiter } from "../middleware/rateLimiter.js";
 import { CreateInviteSchema } from "../schemas/validation.js";
 import * as inviteService from "../services/inviteService.js";
-import { env } from "../config/env.js";
 
 const router = Router();
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  sameSite: "strict" as const,
-};
 
 // POST /api/v1/teams/:id/invites
 router.post(

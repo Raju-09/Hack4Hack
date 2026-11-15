@@ -1,12 +1,9 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { authenticate, optionalAuthenticate, requireUser } from "../middleware/auth.js";
+import { authenticate, requireUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { generalLimiter } from "../middleware/rateLimiter.js";
-import { DiscoveryQuerySchema, UpdateProfileSchema } from "../schemas/validation.js";
+import { DiscoveryQuerySchema } from "../schemas/validation.js";
 import * as discoveryService from "../services/discoveryService.js";
-import { User } from "../models/index.js";
-import { NotFoundError } from "../utils/errors.js";
-import { toPublicUser } from "../services/authService.js";
 
 const router = Router();
 

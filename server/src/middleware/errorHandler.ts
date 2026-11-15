@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError, ValidationError } from "../utils/errors.js";
 import { logger } from "../utils/logger.js";
-import { env } from "../config/env.js";
 import mongoose from "mongoose";
 
 /**

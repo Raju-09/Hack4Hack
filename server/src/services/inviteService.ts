@@ -10,7 +10,6 @@ import {
   InviteExpiredError,
   InviteRevokedError,
   InviteUsedUpError,
-  WrongHackathonError,
   TeamFullError,
   AlreadyMemberError,
   HackathonClosedError,

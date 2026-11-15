@@ -5,7 +5,6 @@ import { idempotency } from "../middleware/idempotency.js";
 import { joinLimiter, generalLimiter } from "../middleware/rateLimiter.js";
 import { CreateJoinRequestSchema, LeaveTeamSchema } from "../schemas/validation.js";
 import * as membershipService from "../services/membershipService.js";
-import { z } from "zod";
 
 const router = Router();
 

@@ -1,17 +1,15 @@
 import mongoose from "mongoose";
 import {
-  Team, Membership, AuditLog, OutboxEvent, Hackathon, JoinRequest,
+  Team, Membership, AuditLog, OutboxEvent, Hackathon,
   ITeam,
 } from "../models/index.js";
 import { withTransaction } from "../config/database.js";
 import {
-  TeamFullError,
   AlreadyMemberError,
   NotFoundError,
   ForbiddenError,
   ConflictError,
   HackathonClosedError,
-  DuplicateTeamNameError,
 } from "../utils/errors.js";
 import { logger } from "../utils/logger.js";
 
