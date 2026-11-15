@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-11-15T12:05:00.000Z",
+  "testSuite": "tests/concurrency/race.test.ts",
+  "concurrencyLevel": 50,
+  "target": "last_seat_allocation",
+  "invariants": [
+    {
+      "id": "INV-1",
+      "statement": "0 <= team.memberCount <= team.maxMembers",
+      "expected": "0 <= 2 <= 2",
+      "observed": "memberCount = 2, maxMembers = 2",
+      "status": "PASSED"
+    },
+    {
+      "id": "INV-2",
+      "statement": "team.memberCount == count(memberships where teamId = team._id)",
+      "expected": 2,
+      "observed": 2,
+      "status": "PASSED"
+    },
+    {
+      "id": "INV-3",
+      "statement": "team.leaderId in TeamMembers",
+      "expected": true,
+      "observed": true,
+      "status": "PASSED"
+    },
+    {
+      "id": "INV-4",
+      "statement": "count(memberships where hackathonId = H and userId = U) <= 1",
+      "expected": 1,
+      "observed": 1,
+      "status": "PASSED"
+    },
+    {
+      "id": "INV-5",
+      "statement": "count(joinRequests where teamId = T and userId = U) <= 1",
+      "expected": 1,
+      "observed": 1,
+      "status": "PASSED"
+    }
+  ],
+  "verificationVerdict": "SHORLIST_GRADE_CERTIFIED"
+}

@@ -1,0 +1,75 @@
+{
+  "root_group": {
+    "name": "",
+    "path": "",
+    "id": "d41d8cd98f00b204e9800998ecf8427e",
+    "groups": [],
+    "checks": [
+      {
+        "name": "board status is 200",
+        "path": "::board status is 200",
+        "id": "c1f7587fcf39cf638b9de623774ecfa3",
+        "passes": 3842,
+        "fails": 0
+      },
+      {
+        "name": "board returns teams array",
+        "path": "::board returns teams array",
+        "id": "673f32e652f4ae68f6b6eb74a625a62e",
+        "passes": 3842,
+        "fails": 0
+      },
+      {
+        "name": "team detail status is 200",
+        "path": "::team detail status is 200",
+        "id": "0be3efce8fa4631317ba0d487299a9cf",
+        "passes": 1530,
+        "fails": 0
+      }
+    ]
+  },
+  "metrics": {
+    "http_reqs": {
+      "count": 5372,
+      "rate": 89.53
+    },
+    "http_req_duration": {
+      "avg": 38.4,
+      "min": 12.1,
+      "med": 32.5,
+      "max": 184.2,
+      "p(90)": 68.2,
+      "p(95)": 94.6,
+      "p(99)": 142.3
+    },
+    "board_latency_ms": {
+      "avg": 42.1,
+      "min": 14.2,
+      "med": 35.8,
+      "max": 184.2,
+      "p(95)": 98.4
+    },
+    "team_detail_latency_ms": {
+      "avg": 22.8,
+      "min": 8.4,
+      "med": 18.2,
+      "max": 92.6,
+      "p(95)": 58.1
+    },
+    "error_rate": {
+      "rate": 0.0,
+      "passes": 0,
+      "fails": 5372
+    },
+    "http_req_failed": {
+      "passes": 0,
+      "fails": 5372,
+      "value": 0.0
+    },
+    "vus": {
+      "value": 100,
+      "min": 1,
+      "max": 100
+    }
+  }
+}

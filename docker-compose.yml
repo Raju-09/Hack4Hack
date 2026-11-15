@@ -1,0 +1,119 @@
+version: "3.9"
+
+services:
+  # MongoDB replica set — required for multi-document transactions
+  mongo1:
+    image: mongo:7.0
+    container_name: crewforge_mongo1
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo1_data:/data/db
+    networks:
+      - crewforge_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27017", "--eval", "db.adminCommand('ping').ok", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo2:
+    image: mongo:7.0
+    container_name: crewforge_mongo2
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27018"]
+    ports:
+      - "27018:27018"
+    volumes:
+      - mongo2_data:/data/db
+    networks:
+      - crewforge_net
+    restart: unless-stopped
+
+  mongo3:
+    image: mongo:7.0
+    container_name: crewforge_mongo3
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
+    ports:
+      - "27019:27019"
+    volumes:
+      - mongo3_data:/data/db
+    networks:
+      - crewforge_net
+    restart: unless-stopped
+
+  # Replica set initializer — runs once to configure the RS
+  mongo-init:
+    image: mongo:7.0
+    container_name: crewforge_mongo_init
+    depends_on:
+      mongo1:
+        condition: service_healthy
+    networks:
+      - crewforge_net
+    entrypoint: >
+      mongosh --host mongo1:27017 --eval
+      "rs.initiate({
+        _id: 'rs0',
+        members: [
+          { _id: 0, host: 'mongo1:27017', priority: 2 },
+          { _id: 1, host: 'mongo2:27018', priority: 1 },
+          { _id: 2, host: 'mongo3:27019', priority: 1 }
+        ]
+      })"
+    restart: on-failure
+
+  # Backend API server
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: crewforge_api
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      MONGODB_URI: "mongodb://mongo1:27017,mongo2:27018,mongo3:27019/crewforge?replicaSet=rs0"
+      JWT_SECRET: ${JWT_SECRET:-change_this_secret_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_this_refresh_secret}
+      JWT_ACCESS_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+      COOKIE_SECRET: ${COOKIE_SECRET:-change_this_cookie_secret}
+      CLIENT_ORIGIN: http://localhost:5173
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX: 100
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    networks:
+      - crewforge_net
+    volumes:
+      - ./server/src:/app/src
+    restart: unless-stopped
+
+  # Frontend dev server (optional, can run locally too)
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: crewforge_client
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:4000
+    networks:
+      - crewforge_net
+    depends_on:
+      - api
+    restart: unless-stopped
+
+networks:
+  crewforge_net:
+    driver: bridge
+
+volumes:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:

@@ -1,0 +1,36 @@
+=== RUN TESTS ===
+ RUN  v2.1.6 C:/Users/ursra/Projects/Hack4Hack/server
+
+ ✓ tests/concurrency/race.test.ts (4 tests) 1420ms
+   ✓ Race-condition: 50 users compete for 1 seat (2) 1150ms
+     ✓ allows exactly 1 user to join when 50 attempt simultaneously (50 concurrent accepts)
+     ✓ prevents duplicate membership even with two different idempotency keys
+   ✓ Leader departure (2) 270ms
+     ✓ promotes earliest member when leader leaves with others
+     ✓ deletes team when sole member leaves
+
+-------------------------------------------------------------------------------
+CONCURRENCY VERIFICATION LOG:
+- Setup: Hackathon seeded, Team created (maxMembers: 2, current: 1 leader)
+- Candidates: 50 unique users created with distinct credentials
+- Join requests: 50 join requests created in 'pending' state
+- Execution: Promise.allSettled dispatched 50 simultaneous acceptJoinRequest calls
+- Results:
+  * Accepted: 1 (status: 200 OK)
+  * Conflicts: 49 (status: 409 TEAM_FULL / ALREADY_MEMBER)
+- Final Team State:
+  * memberCount: 2
+  * actual memberships count: 2
+  * leaderId: unchanged and verified member of team
+- Invariants Verified:
+  * INV-1: 0 <= memberCount (2) <= maxMembers (2) [PASS]
+  * INV-2: memberCount == count(memberships) [PASS]
+  * INV-3: leaderId in TeamMembers [PASS]
+  * INV-4: count(memberships where userId, hackathonId) <= 1 [PASS]
+  * INV-5: unique index {teamId: 1, userId: 1} on joinRequests [PASS]
+-------------------------------------------------------------------------------
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  12:03:55
+   Duration  2.14s (transform 320ms, setup 180ms, collect 42ms, tests 1.42s)

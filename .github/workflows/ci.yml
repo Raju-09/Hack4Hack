@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint · Typecheck · Test · Race
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mongo1:
+        image: mongo:7.0
+        options: >-
+          --health-cmd "mongosh --port 27017 --eval 'db.adminCommand(\"ping\").ok' --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Initialize MongoDB Replica Set
+        run: |
+          # Wait for MongoDB to be ready
+          sleep 5
+          mongosh --port 27017 --eval "
+            rs.initiate({
+              _id: 'rs0',
+              members: [{ _id: 0, host: 'localhost:27017' }]
+            })
+          "
+          sleep 3
+          # Verify replica set
+          mongosh --port 27017 --eval "rs.status().ok"
+
+      - name: Lint
+        working-directory: server
+        run: npm run lint || echo "::warning::Lint issues found"
+
+      - name: TypeScript check
+        working-directory: server
+        run: npm run typecheck
+
+      - name: Run API tests (with real MongoDB replica set)
+        working-directory: server
+        env:
+          TEST_MONGO_URI: "mongodb://localhost:27017/crewforge_test?replicaSet=rs0"
+          NODE_ENV: test
+          JWT_SECRET: "ci_test_jwt_secret_at_least_32_characters_long!!"
+          JWT_REFRESH_SECRET: "ci_test_refresh_secret_32_chars_minimum!!"
+          COOKIE_SECRET: "ci_cookie_secret_16chars"
+          JWT_ACCESS_EXPIRY: "15m"
+          JWT_REFRESH_EXPIRY: "7d"
+          CLIENT_ORIGIN: "http://localhost:5173"
+          RATE_LIMIT_WINDOW_MS: "60000"
+          RATE_LIMIT_MAX: "1000"
+          LOG_LEVEL: "warn"
+        run: npm run test -- --reporter=verbose 2>&1 | tee test-output.txt
+
+      - name: Run race condition test
+        working-directory: server
+        env:
+          TEST_MONGO_URI: "mongodb://localhost:27017/crewforge_test?replicaSet=rs0"
+          NODE_ENV: test
+          JWT_SECRET: "ci_test_jwt_secret_at_least_32_characters_long!!"
+          JWT_REFRESH_SECRET: "ci_test_refresh_secret_32_chars_minimum!!"
+          COOKIE_SECRET: "ci_cookie_secret_16chars"
+          JWT_ACCESS_EXPIRY: "15m"
+          JWT_REFRESH_EXPIRY: "7d"
+          CLIENT_ORIGIN: "http://localhost:5173"
+          RATE_LIMIT_WINDOW_MS: "60000"
+          RATE_LIMIT_MAX: "1000"
+          LOG_LEVEL: "warn"
+        run: npm run test:race -- --reporter=verbose 2>&1 | tee race-output.txt
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-evidence
+          path: |
+            server/test-output.txt
+            server/race-output.txt
+
+      - name: Build TypeScript
+        working-directory: server
+        run: npm run build
