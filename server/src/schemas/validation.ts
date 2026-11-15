@@ -41,7 +41,7 @@ export const TeamQuerySchema = z.object({
   skills:      z.union([z.string(), z.array(z.string())]).optional().transform((v) =>
     v === undefined ? undefined : Array.isArray(v) ? v : [v]
   ),
-  looking:     z.enum(["true", "false"]).optional().transform((v) => v === "true"),
+  looking:     z.enum(["true", "false"]).optional().transform((v) => (v === undefined ? undefined : v === "true")),
   timezone:    z.string().optional(),
   limit:       z.coerce.number().min(1).max(50).default(20),
   cursor:      z.string().optional(),   // base64-encoded last _id for cursor pagination
