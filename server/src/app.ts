@@ -12,6 +12,7 @@ import invitesRouter   from "./routes/invites.js";
 import discoveryRouter from "./routes/discovery.js";
 import eventsRouter    from "./routes/events.js";
 import meRouter        from "./routes/me.js";
+import adminRouter     from "./routes/admin.js";
 
 export function createApp() {
   const app = express();
@@ -62,6 +63,7 @@ export function createApp() {
   app.use("/api/v1/discovery", discoveryRouter);
   app.use("/api/v1/events",    eventsRouter);
   app.use("/api/v1/me",        meRouter);
+  app.use("/api/v1/admin",     adminRouter);
 
   // ── 404 handler ────────────────────────────────────────────────────────────
   app.use((_req, res) => {

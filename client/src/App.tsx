@@ -162,7 +162,7 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer style={{ borderTop: "1px solid var(--border)", padding: "2rem 0", color: "var(--text-subtle)", fontSize: "0.8rem", textAlign: "center", background: "#060911" }}>
+      <footer style={{ borderTop: "1px solid var(--border)", padding: "2rem 0", color: "var(--text-subtle)", fontSize: "0.8rem", textAlign: "center", background: "var(--bg-card-subtle)" }}>
         <div className="container">
           <p style={{ marginBottom: "0.5rem" }}>
             <strong>CrewForge</strong> · Hack4Hack Crew Hiring Challenge 2026 (PS1: Race-Proof Team Formation at Scale)

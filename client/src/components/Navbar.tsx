@@ -1,6 +1,7 @@
 import React from "react";
 import { User } from "../types";
-import { Users, Sparkles, Activity, ShieldCheck, LogIn, LogOut, Radio } from "lucide-react";
+import { Users, Sparkles, Activity, ShieldCheck, LogIn, LogOut, Radio, Sun, Moon } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
 
 interface NavbarProps {
   user: User | null;
@@ -21,17 +22,60 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleDiscoverable,
   hasTeam,
 }) => {
+  const { theme, toggleTheme } = useTheme();
+
   return (
-    <header style={{ borderBottom: "1px solid var(--border)", background: "rgba(9, 13, 22, 0.8)", backdropFilter: "blur(8px)", position: "sticky", top: 0, zIndex: 100 }}>
-      <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "68px" }}>
+    <header
+      style={{
+        borderBottom: "1px solid var(--border)",
+        background: "var(--nav-bg)",
+        backdropFilter: "blur(12px)",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+      }}
+    >
+      <div
+        className="container"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: "68px",
+        }}
+      >
         {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", cursor: "pointer" }} onClick={() => setActiveTab("board")}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "linear-gradient(135deg, #6366f1 0%, #3b82f6 100%)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800 }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "0.65rem", cursor: "pointer" }}
+            onClick={() => setActiveTab("board")}
+          >
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
+                background: "linear-gradient(135deg, #6366f1 0%, #3b82f6 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontWeight: 800,
+                boxShadow: "0 2px 10px rgba(99, 102, 241, 0.35)",
+              }}
+            >
               CF
             </div>
             <div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 800, letterSpacing: "-0.02em", color: "#fff", lineHeight: 1.1 }}>
+              <div
+                style={{
+                  fontSize: "1.15rem",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  color: "var(--text-heading)",
+                  lineHeight: 1.1,
+                }}
+              >
                 CrewForge
               </div>
               <div style={{ fontSize: "0.7rem", color: "var(--text-subtle)", fontWeight: 600 }}>
@@ -80,15 +124,38 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             className={`btn ${activeTab === "simulator" ? "btn-primary" : "btn-secondary"}`}
             onClick={() => setActiveTab("simulator")}
-            style={{ fontSize: "0.85rem", borderColor: activeTab === "simulator" ? undefined : "#4338ca" }}
+            style={{ fontSize: "0.85rem" }}
           >
             <Activity size={16} />
             <span>Race Simulator</span>
           </button>
         </nav>
 
-        {/* User profile / Auth */}
+        {/* Right side: Theme toggle & User profile / Auth */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className="btn btn-secondary"
+            title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
+            style={{
+              padding: "0.5rem",
+              borderRadius: "50%",
+              width: "36px",
+              height: "36px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            aria-label="Toggle Theme"
+          >
+            {theme === "dark" ? (
+              <Sun size={17} style={{ color: "#fbbf24" }} />
+            ) : (
+              <Moon size={17} style={{ color: "#4f46e5" }} />
+            )}
+          </button>
+
           {user ? (
             <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
               <button
@@ -101,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#fff" }}>
+                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-heading)" }}>
                   {user.displayName}
                 </div>
                 <div style={{ fontSize: "0.7rem", color: "var(--text-subtle)" }}>
@@ -109,14 +176,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              <button className="btn btn-secondary" onClick={onLogout} title="Log Out" style={{ padding: "0.5rem" }}>
+              <button className="btn btn-secondary" onClick={onLogout} title="Sign Out" style={{ padding: "0.5rem" }}>
                 <LogOut size={16} />
               </button>
             </div>
           ) : (
             <button className="btn btn-primary" onClick={onOpenAuth}>
               <LogIn size={16} />
-              <span>Sign In / Demo</span>
+              <span>Sign In</span>
             </button>
           )}
         </div>

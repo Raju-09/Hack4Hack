@@ -31,82 +31,96 @@ export async function createJoinRequest(input: {
   userId: string;
   message: string;
 }): Promise<{ requestId: string }> {
-  const team = await Team.findOne({
-    _id: input.teamId,
-    deletedAt: null,
-  }).lean();
-  if (!team) throw new NotFoundError("Team");
+  return withTransaction(async (session) => {
+    const team = await Team.findOne({
+      _id: input.teamId,
+      deletedAt: null,
+    }).session(session);
+    if (!team) throw new NotFoundError("Team");
 
-  const hackathon = await Hackathon.findById(team.hackathonId).lean();
-  if (!hackathon || hackathon.status !== "open") throw new HackathonClosedError();
+    const hackathon = await Hackathon.findById(team.hackathonId).session(session).lean();
+    if (!hackathon || hackathon.status !== "open") throw new HackathonClosedError();
 
-  if (!team.lookingForMembers) {
-    throw new ForbiddenError("This team is not accepting join requests");
-  }
-
-  // Check existing membership in this hackathon
-  const membership = await Membership.findOne({
-    hackathonId: team.hackathonId,
-    userId: input.userId,
-  }).lean();
-  if (membership) throw new AlreadyMemberError();
-
-  const userObjId = new mongoose.Types.ObjectId(input.userId);
-  const teamObjId = new mongoose.Types.ObjectId(input.teamId);
-
-  // Check if a request already exists for this (teamId, userId)
-  const existingRequest = await JoinRequest.findOne({ teamId: teamObjId, userId: userObjId });
-  let requestId: string;
-
-  if (existingRequest) {
-    if (existingRequest.status === "pending") {
-      throw new RequestExistsError();
+    if (!team.lookingForMembers) {
+      throw new ForbiddenError("This team is not accepting join requests");
     }
-    if (existingRequest.status === "accepted") {
-      throw new AlreadyMemberError();
-    }
-    // Reapplication after "declined", "conflict", or "cancelled"
-    existingRequest.status = "pending";
-    existingRequest.message = input.message;
-    existingRequest.updatedAt = new Date();
-    await existingRequest.save();
-    requestId = String(existingRequest._id);
-  } else {
-    try {
-      const created = await JoinRequest.create({
-        hackathonId: team.hackathonId,
-        teamId:      teamObjId,
-        userId:      userObjId,
-        message:     input.message,
-        status:      "pending",
-      });
-      requestId = String(created._id);
-    } catch (err) {
-      if (
-        err instanceof mongoose.mongo.MongoServerError &&
-        err.code === 11000
-      ) {
+
+    // Check existing membership in this hackathon
+    const membership = await Membership.findOne({
+      hackathonId: team.hackathonId,
+      userId: input.userId,
+    }).session(session).lean();
+    if (membership) throw new AlreadyMemberError();
+
+    const userObjId = new mongoose.Types.ObjectId(input.userId);
+    const teamObjId = new mongoose.Types.ObjectId(input.teamId);
+
+    // Check if a request already exists for this (teamId, userId)
+    const existingRequest = await JoinRequest.findOne({ teamId: teamObjId, userId: userObjId }).session(session);
+    let requestId: string;
+
+    if (existingRequest) {
+      if (existingRequest.status === "pending") {
         throw new RequestExistsError();
       }
-      throw err;
+      if (existingRequest.status === "accepted") {
+        throw new AlreadyMemberError();
+      }
+      // Reapplication after "declined", "conflict", or "cancelled"
+      existingRequest.status = "pending";
+      existingRequest.message = input.message;
+      existingRequest.updatedAt = new Date();
+      await existingRequest.save({ session });
+      requestId = String(existingRequest._id);
+    } else {
+      try {
+        const created = await JoinRequest.create(
+          [
+            {
+              hackathonId: team.hackathonId,
+              teamId:      teamObjId,
+              userId:      userObjId,
+              message:     input.message,
+              status:      "pending",
+            },
+          ],
+          { session, ordered: true }
+        );
+        const firstCreated = created[0];
+        if (!firstCreated) throw new Error("Failed to create join request");
+        requestId = String(firstCreated._id);
+      } catch (err) {
+        if (
+          (err as any)?.code === 11000 ||
+          (err instanceof mongoose.mongo.MongoServerError && err.code === 11000)
+        ) {
+          throw new RequestExistsError();
+        }
+        throw err;
+      }
     }
-  }
 
-  // Outbox: notify team leader
-  await OutboxEvent.create({
-    eventType:   "join_request.created",
-    aggregateId: String(team._id),
-    hackathonId: team.hackathonId,
-    payload: {
-      requestId,
-      teamId:    input.teamId,
-      userId:    input.userId,
-    },
-    publishedAt: null,
+    // Outbox: notify team leader within same transaction
+    await OutboxEvent.create(
+      [
+        {
+          eventType:   "join_request.created",
+          aggregateId: String(team._id),
+          hackathonId: team.hackathonId,
+          payload: {
+            requestId,
+            teamId:    input.teamId,
+            userId:    input.userId,
+          },
+          publishedAt: null,
+        },
+      ],
+      { session }
+    );
+
+    logger.info("Join request created", { requestId, teamId: input.teamId, userId: input.userId });
+    return { requestId };
   });
-
-  logger.info("Join request created", { requestId, teamId: input.teamId, userId: input.userId });
-  return { requestId };
 }
 
 // ─── Accept Join Request ──────────────────────────────────────────────────────

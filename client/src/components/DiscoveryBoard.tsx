@@ -201,7 +201,7 @@ export const DiscoveryBoard: React.FC<DiscoveryBoardProps> = ({
             <div key={team._id} className="card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
-                  <h3 style={{ fontSize: "1.15rem", color: "#fff" }}>{team.name}</h3>
+                  <h3 style={{ fontSize: "1.15rem", color: "var(--text-heading)" }}>{team.name}</h3>
                   <span className={`badge ${isFull ? "badge-full" : "badge-open"}`}>
                     {isFull ? "Full" : `${availableSlots} seat${availableSlots > 1 ? "s" : ""} left`}
                   </span>
@@ -272,7 +272,7 @@ export const DiscoveryBoard: React.FC<DiscoveryBoardProps> = ({
 
       {filteredTeams.length === 0 && (
         <div className="card" style={{ textAlign: "center", padding: "4rem 2rem", color: "var(--text-subtle)" }}>
-          <p style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "#fff" }}>No teams match your search</p>
+          <p style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--text-heading)" }}>No teams match your search</p>
           <p style={{ fontSize: "0.9rem" }}>Try adjusting your filters or be the first to create one!</p>
         </div>
       )}
@@ -313,7 +313,7 @@ export const DiscoveryBoard: React.FC<DiscoveryBoardProps> = ({
                     {/* Differentiator 3: Conflict-aware suggestion */}
                     {requestError.code === "TEAM_FULL" && (
                       <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(239, 68, 68, 0.3)" }}>
-                        <div style={{ fontSize: "0.8rem", color: "#fff", fontWeight: 600, marginBottom: "0.35rem" }}>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-heading)", fontWeight: 600, marginBottom: "0.35rem" }}>
                           Suggested teams looking for similar skills:
                         </div>
                         {teams

@@ -268,7 +268,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
             <div key={member.userId} className="card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                  <h4 style={{ fontSize: "1rem", color: "#fff" }}>
+                  <h4 style={{ fontSize: "1rem", color: "var(--text-heading)" }}>
                     {member.displayName || `Member (${member.userId.slice(-4)})`}
                   </h4>
                   {member.role === "leader" ? (
@@ -315,7 +315,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
             <div key={req._id} className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                  <h4 style={{ color: "#fff" }}>{req.user.displayName || "Participant"}</h4>
+                  <h4 style={{ color: "var(--text-heading)" }}>{req.user.displayName || "Participant"}</h4>
                   <span className="badge badge-open">Pending</span>
                 </div>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
@@ -405,7 +405,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
             {/* Generated Raw Token Alert (Shown only once) */}
             {generatedToken && (
               <div style={{ marginTop: "1.25rem", padding: "1rem", background: "rgba(99, 102, 241, 0.15)", border: "1px solid var(--primary)", borderRadius: "8px" }}>
-                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#fff", marginBottom: "0.5rem" }}>
+                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-heading)", marginBottom: "0.5rem" }}>
                   ⚡ One-Time Cryptographic Invite Token:
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

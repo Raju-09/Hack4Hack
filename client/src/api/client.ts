@@ -78,4 +78,11 @@ export const api = {
 
   // Discovery
   getMatches: (hackathonId: string, teamId?: string) => request<{ matches: import("../types").MatchRecommendation[] }>(`/discovery/matches?hackathonId=${hackathonId}${teamId ? `&teamId=${teamId}` : ""}`),
+
+  // Admin & Concurrency Verification
+  runRaceSimulation: (userCount: number) =>
+    request<import("../types").RaceSimulationResult>("/admin/race-simulation", {
+      method: "POST",
+      body: JSON.stringify({ userCount }),
+    }),
 };

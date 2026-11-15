@@ -73,7 +73,7 @@ export const TeammateMatching: React.FC<TeammateMatchingProps> = ({
         <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
           <Info size={20} style={{ color: "var(--primary)", marginTop: "2px", flexShrink: 0 }} />
           <div>
-            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#fff", marginBottom: "0.25rem" }}>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-heading)", marginBottom: "0.25rem" }}>
               Matching Model Formula:
             </div>
             <div className="code-box" style={{ display: "inline-block", padding: "0.3rem 0.6rem", margin: "0.25rem 0", color: "#a5b4fc" }}>
@@ -93,7 +93,7 @@ export const TeammateMatching: React.FC<TeammateMatchingProps> = ({
       ) : matches.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "3rem", color: "var(--text-subtle)" }}>
           <Compass size={36} style={{ margin: "0 auto 0.75rem", opacity: 0.5 }} />
-          <p style={{ fontSize: "1rem", color: "#fff", marginBottom: "0.5rem" }}>No discoverable participants found</p>
+          <p style={{ fontSize: "1rem", color: "var(--text-heading)", marginBottom: "0.5rem" }}>No discoverable participants found</p>
           <p style={{ fontSize: "0.85rem" }}>
             Make sure your profile has <strong>Discoverable</strong> turned on, or wait for more candidates to opt in!
           </p>
@@ -109,7 +109,7 @@ export const TeammateMatching: React.FC<TeammateMatchingProps> = ({
                   {/* Top Bar: Name + Score */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
                     <div>
-                      <h3 style={{ fontSize: "1.1rem", color: "#fff" }}>{candidate.displayName}</h3>
+                      <h3 style={{ fontSize: "1.1rem", color: "var(--text-heading)" }}>{candidate.displayName}</h3>
                       <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
                         {candidate.timezone} · {candidate.experienceLevel}
                       </div>

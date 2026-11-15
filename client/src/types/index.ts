@@ -87,3 +87,55 @@ export interface MatchRecommendation {
     matchReasons: string[];
   };
 }
+
+export interface RaceSimulationResult {
+  success: boolean;
+  batchId: string;
+  totalRequests: number;
+  seatsAvailable: number;
+  accepted: number;
+  conflicts: number;
+  breakdown: {
+    accepted200: number;
+    conflicts409: number;
+    otherErrors: number;
+  };
+  latencies: number[];
+  stats: {
+    min: number;
+    p50: number;
+    p90: number;
+    p95: number;
+    p99: number;
+    max: number;
+    mean: number;
+  };
+  invariants: {
+    inv1_capacityRespected: boolean;
+    inv2_memberCountMatches: boolean;
+    inv3_singleWinner: boolean;
+    inv4_noDuplicateMembers: boolean;
+    allPassed: boolean;
+  };
+  databaseSnapshot: {
+    teamId: string;
+    finalMemberCount: number;
+    maxMembers: number;
+    activeMemberships: number;
+    acceptedJoinRequests: number;
+    rejectedJoinRequests: number;
+    pendingJoinRequests: number;
+    duplicateMembershipCount: number;
+  };
+  requestsSample: Array<{
+    requestId: string;
+    applicantId: string;
+    success: boolean;
+    latencyMs: number;
+    statusCode: number;
+    errorCode?: string;
+    errorMessage?: string;
+  }>;
+  executionDurationMs: number;
+  executedAt: string;
+}
